@@ -1,3 +1,5 @@
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from './firebase'; // عدل المسار حسب مكان ملف firebase.js
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,44 +60,40 @@ const ExamInterface = ({ studentName, onComplete, examConfig }) => {
     }));
   };
 
-  const handleSubmit = () => {
-    const results = {
-      totalQuestions: questions.length,
-      answeredQuestions: Object.keys(answers).length,
-      correctAnswers: questions.filter(q => answers[q.id] === q.answer).length,
-      answers: answers,
-      questions: questions,
-      timeSpent: 180 * 60 - timeLeft,
-      percentage: 0,
-      grade: ''
-    };
-    
-    results.percentage = (results.correctAnswers / results.totalQuestions) * 100;
-    
-    // Use configurable grade labels
-    results.grade = results.percentage >= 90 ? examConfig?.excellentGrade || 'ممتاز' : 
-                   results.percentage >= 80 ? examConfig?.veryGoodGrade || 'جيد جداً' : 
-                   results.percentage >= 70 ? examConfig?.goodGrade || 'جيد' : 
-                   results.percentage >= 60 ? examConfig?.acceptableGrade || 'مقبول' : 
-                   examConfig?.weakGrade || 'ضعيف';
-
-    console.log('Saving student result:', { studentName, results });
-
-    // Save student result to localStorage
-    const studentResults = JSON.parse(localStorage.getItem('studentResults') || '[]');
-    const newResult = {
-      id: Date.now(),
-      studentName: studentName,
-      ...results,
-      submittedAt: new Date().toISOString()
-    };
-    studentResults.push(newResult);
-    localStorage.setItem('studentResults', JSON.stringify(studentResults));
-
-    console.log('Student results saved to localStorage:', studentResults);
-
-    onComplete(results);
+const handleSubmit = async () => {
+  const results = {
+    totalQuestions: questions.length,
+    answeredQuestions: Object.keys(answers).length,
+    correctAnswers: questions.filter(q => answers[q.id] === q.answer).length,
+    answers: answers,
+    questions: questions,
+    timeSpent: 180 * 60 - timeLeft,
+    percentage: 0,
+    grade: ''
   };
+  
+  results.percentage = (results.correctAnswers / results.totalQuestions) * 100;
+  results.grade = results.percentage >= 90 ? examConfig?.excellentGrade || 'ممتاز' : 
+                  results.percentage >= 80 ? examConfig?.veryGoodGrade || 'جيد جداً' : 
+                  results.percentage >= 70 ? examConfig?.goodGrade || 'جيد' : 
+                  results.percentage >= 60 ? examConfig?.acceptableGrade || 'مقبول' : 
+                  examConfig?.weakGrade || 'ضعيف';
+
+  const newResult = {
+    studentName,
+    ...results,
+    submittedAt: new Date().toISOString()
+  };
+
+  try {
+    await addDoc(collection(db, "studentResults"), newResult);
+    console.log("Result saved to Firebase!");
+    onComplete(results);
+  } catch (error) {
+    console.error("Error saving result: ", error);
+  }
+};
+
 
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
